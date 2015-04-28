@@ -4,19 +4,13 @@ package com.ninehournerd.locosense;
  * Created by katelyn on 4/26/15.
  */
 
-import android.app.IntentService;
-import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.location.Address;
 import android.location.Geocoder;
-import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
-import android.support.v4.app.NotificationCompat;
-import android.support.v4.app.TaskStackBuilder;
-import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -30,10 +24,10 @@ import android.widget.Toast;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.Geofence;
-import com.google.android.gms.location.GeofencingEvent;
 import com.google.android.gms.location.GeofencingRequest;
 import com.google.android.gms.location.LocationServices;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -54,6 +48,19 @@ public class LocationFragment extends Fragment implements GoogleApiClient.Connec
     }
 
     private GoogleApiClient mGoogleApiClient;
+    private static final String LOG_TAG = LocationFragment.class.getSimpleName();
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        // TODO Auto-generated method stub
+        super.onCreate(savedInstanceState);
+
+        buildGoogleApiClient();
+        mGoogleApiClient.connect();
+
+
+
+    }
 
     @Override
     public void onConnected(Bundle bundle) {
@@ -109,11 +116,17 @@ public class LocationFragment extends Fragment implements GoogleApiClient.Connec
                 comment = datasource.createComment(edit.getText().toString());
                 mLocationAdapter.add(comment);
 
-                createGeoFence(edit.getText().toString());
+                Geofence geofence = createGeoFence(edit.getText().toString());
+                if (geofence != null) {
+                    mGeofencePendingIntent = getGeofencePendingIntent();
+                    LocationServices.GeofencingApi.addGeofences(mGoogleApiClient,
+                            getGeofencingRequest(geofence),
+                            mGeofencePendingIntent);
+                    showGeofenceCreatedToast(geofence);
 
+                }
 
                 edit.setText("");
-
 
                 mLocationAdapter.notifyDataSetChanged();
             }
@@ -126,6 +139,46 @@ public class LocationFragment extends Fragment implements GoogleApiClient.Connec
         listView.setAdapter(mLocationAdapter);
 
         return rootView;
+    }
+
+    private Geofence createGeoFence(String location) {
+        Geocoder geocoder = new Geocoder(getActivity());
+
+        try {
+            //TODO: getFromLocationName is blocking and should be moved to separate thread
+            List<Address> addressList = geocoder.getFromLocationName(location, 1);
+            if (addressList != null && addressList.size() > 0) {
+                Address address = addressList.get(0);
+
+                Geofence geofence = new Geofence.Builder()
+                        // Set the request ID of the geofence. This is a string to identify this
+                        // geofence.
+                        .setRequestId(location)
+                        .setCircularRegion(
+                                address.getLatitude(),
+                                address.getLongitude(),
+                                100
+                        )
+                        .setExpirationDuration(1000*60*10) //TODO: change to NEVER_EXPIRE
+                        .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER |
+                                Geofence.GEOFENCE_TRANSITION_EXIT)
+                        .build();
+                return geofence;
+            }
+        }
+        catch (IOException e) {
+            //TODO: IOException	if the network is unavailable or any other I/O problem occurs
+        }
+        return null;
+    }
+
+    private void showGeofenceCreatedToast(Geofence geofence) {
+        Context context = getActivity();
+        CharSequence text = "Geofence for " + geofence.getRequestId() + " created!";
+        int duration = Toast.LENGTH_SHORT;
+
+        Toast toast = Toast.makeText(context, text, duration);
+        toast.show();
     }
 
 
@@ -141,64 +194,15 @@ public class LocationFragment extends Fragment implements GoogleApiClient.Connec
                 FLAG_UPDATE_CURRENT);
     }
 
-    private GeofencingRequest getGeofencingRequest() {
+    private GeofencingRequest getGeofencingRequest(Geofence geofence) {
+        //TODO: check if you can continuously add single geofence
+        ArrayList<Geofence> mGeofenceList = new ArrayList<Geofence>();
+        mGeofenceList.add(geofence);
+
         GeofencingRequest.Builder builder = new GeofencingRequest.Builder();
-        builder.setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER);
+        builder.setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER & GeofencingRequest.INITIAL_TRIGGER_EXIT);
         builder.addGeofences(mGeofenceList);
         return builder.build();
-    }
-
-
-
-    private void createGeoFence(String loc) {
-
-        Geocoder geocoder = new Geocoder(getActivity());
-
-
-        try {
-            List<Address> addressList = geocoder.getFromLocationName(loc, 1);
-            if (addressList != null && addressList.size() > 0) {
-                Address address = addressList.get(0);
-                StringBuilder sb = new StringBuilder();
-
-
-                Geofence geofence = new Geofence.Builder()
-                        // Set the request ID of the geofence. This is a string to identify this
-                        // geofence.
-                        .setRequestId(loc)
-
-                        .setCircularRegion(
-                                address.getLatitude(),
-                                address.getLongitude(),
-                                100
-                        )
-                        .setExpirationDuration(10000000)
-                        .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER |
-                                Geofence.GEOFENCE_TRANSITION_EXIT)
-                        .build();
-
-                LocationServices.GeofencingApi.addGeofences(
-                        mGoogleApiClient,
-                        getGeofencingRequest(),
-                        getGeofencePendingIntent()
-                ).setResultCallback(getActivity());
-
-                Context context = getActivity();
-                CharSequence text = "Geofence for " +address.getLatitude() + " " + address.getLongitude() + " created!";
-                int duration = Toast.LENGTH_SHORT;
-
-                Toast toast = Toast.makeText(context, text, duration);
-                toast.show();
-
-                /*sb.append(address.getLatitude()).append("\n");
-                sb.append(address.getLongitude()).append("\n");
-                String result = sb.toString();*/
-            }
-        }
-        catch (Exception e) {
-
-        }
-
     }
 
     public void onResult() {}
@@ -215,22 +219,6 @@ public class LocationFragment extends Fragment implements GoogleApiClient.Connec
         super.onPause();
     }
 
-    public void enableWiFi() {
-        WifiManager wifiManager = (WifiManager) getActivity()
-                .getSystemService(Context.WIFI_SERVICE);
-        if(!wifiManager.isWifiEnabled()) {
-            wifiManager.setWifiEnabled(true);
-        }
-    }
-
-    public void disableWifi() {
-        WifiManager wifiManager = (WifiManager) getActivity()
-                .getSystemService(Context.WIFI_SERVICE);
-        if(wifiManager.isWifiEnabled()) {
-            wifiManager.setWifiEnabled(false);
-        }
-    }
-
     protected synchronized void buildGoogleApiClient() {
         mGoogleApiClient = new GoogleApiClient.Builder(getActivity())
                 .addConnectionCallbacks(this)
@@ -238,151 +226,5 @@ public class LocationFragment extends Fragment implements GoogleApiClient.Connec
                 .addApi(LocationServices.API)
                 .build();
     }
-
-
-    public class GeofenceTransitionsIntentService extends IntentService {
-
-        public GeofenceTransitionsIntentService() {
-            super("GeofenceTransitionsIntentService");
-        }
-
-        protected void onHandleIntent(Intent intent) {
-            GeofencingEvent geofencingEvent = GeofencingEvent.fromIntent(intent);
-            /*if (geofencingEvent.hasError()) {
-                String errorMessage = GeofenceErrorMessages.getErrorString(this,
-                        geofencingEvent.getErrorCode());
-                Log.e(TAG, errorMessage);
-                return;
-            }*/
-
-            // Get the transition type.
-            int geofenceTransition = geofencingEvent.getGeofenceTransition();
-
-            // Test that the reported transition was of interest.
-            if (geofenceTransition == Geofence.GEOFENCE_TRANSITION_ENTER ||
-                    geofenceTransition == Geofence.GEOFENCE_TRANSITION_EXIT) {
-
-                // Get the geofences that were triggered. A single event can trigger
-                // multiple geofences.
-                List triggeringGeofences = geofencingEvent.getTriggeringGeofences();
-
-                // Get the transition details as a String.
-                String geofenceTransitionDetails = getGeofenceTransitionDetails(
-                        this,
-                        geofenceTransition,
-                        triggeringGeofences
-                );
-
-                // Send notification and log the transition details.
-                sendNotification(geofenceTransitionDetails);
-                //Log.i(TAG, geofenceTransitionDetails);
-
-                if (geofenceTransition == Geofence.GEOFENCE_TRANSITION_ENTER) {
-                    enableWiFi();
-                }
-                if (geofenceTransition == Geofence.GEOFENCE_TRANSITION_EXIT) {
-                    disableWifi();
-                }
-            } else {
-                // Log the error.
-                /*Log.e(TAG, getString(R.string.geofence_transition_invalid_type,
-                        geofenceTransition));*/
-            }
-        }
-
-        /**
-         * Posts a notification in the notification bar when a transition is detected.
-         * If the user clicks the notification, control goes to the MainActivity.
-         */
-        private void sendNotification(String notificationDetails) {
-            // Create an explicit content Intent that starts the main Activity.
-            Intent notificationIntent = new Intent(getApplicationContext(), MainActivity.class);
-            Log.e("DEBUG", "sendNotification");
-            // Construct a task stack.
-            TaskStackBuilder stackBuilder = TaskStackBuilder.create(this);
-
-            // Add the main Activity to the task stack as the parent.
-            stackBuilder.addParentStack(MainActivity.class);
-
-            // Push the content Intent onto the stack.
-            stackBuilder.addNextIntent(notificationIntent);
-
-            // Get a PendingIntent containing the entire back stack.
-            PendingIntent notificationPendingIntent =
-                    stackBuilder.getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT);
-
-            // Get a notification builder that's compatible with platform versions >= 4
-            NotificationCompat.Builder builder = new NotificationCompat.Builder(this);
-
-            // Define the notification settings.
-            /*builder.setSmallIcon(R.drawable.ic_launcher)
-                    // In a real app, you may want to use a library like Volley
-                    // to decode the Bitmap.
-                    .setLargeIcon(BitmapFactory.decodeResource(getResources(),
-                            R.drawable.ic_launcher))
-                    .setColor(Color.RED)
-                    .setContentTitle(notificationDetails)
-                    .setContentText(getString(R.string.geofence_transition_notification_text))
-                    .setContentIntent(notificationPendingIntent);*/
-
-            // Dismiss notification once the user touches it.
-            builder.setAutoCancel(true);
-
-            // Get an instance of the Notification manager
-            NotificationManager mNotificationManager =
-                    (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-
-            // Issue the notification
-            mNotificationManager.notify(0, builder.build());
-        }
-
-
-        /**
-         * Gets transition details and returns them as a formatted string.
-         *
-         * @param context             The app context.
-         * @param geofenceTransition  The ID of the geofence transition.
-         * @param triggeringGeofences The geofence(s) triggered.
-         * @return The transition details formatted as String.
-         */
-        private String getGeofenceTransitionDetails(
-                Context context,
-                int geofenceTransition,
-                List<Geofence> triggeringGeofences) {
-            Log.e("DEBUG", "getGeofenceTransitionDetails");
-            String geofenceTransitionString = getTransitionString(geofenceTransition);
-
-            // Get the Ids of each geofence that was triggered.
-            ArrayList triggeringGeofencesIdsList = new ArrayList();
-            for (Geofence geofence : triggeringGeofences) {
-                triggeringGeofencesIdsList.add(geofence.getRequestId());
-            }
-            String triggeringGeofencesIdsString = TextUtils.join(", ", triggeringGeofencesIdsList);
-
-            return geofenceTransitionString + ": " + triggeringGeofencesIdsString;
-        }
-
-        /**
-         * Maps geofence transition types to their human-readable equivalents.
-         *
-         * @param transitionType    A transition type constant defined in Geofence
-         * @return                  A String indicating the type of transition
-         */
-        private String getTransitionString(int transitionType) {
-            Log.e("DEBUG", "getTransitionString");
-            switch (transitionType) {
-                case Geofence.GEOFENCE_TRANSITION_ENTER:
-                    return "Geofence transition entered";
-                    //return getString(R.string.geofence_transition_entered);
-                case Geofence.GEOFENCE_TRANSITION_EXIT:
-                    //return getString(R.string.geofence_transition_exited);
-                    return "Geofence transition exited";
-                default:
-                    //return getString(R.string.unknown_geofence_transition);
-                    return "unkknown transition entered";
-            }
-        }
-    }
-
 
 }
