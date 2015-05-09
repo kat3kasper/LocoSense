@@ -37,10 +37,10 @@ import java.util.List;
 public class LocationFragment extends Fragment implements GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener{
 
-    private ArrayAdapter<Comment> mLocationAdapter;
-    ArrayList<String> locations = new ArrayList<String>();
-    List<Comment> comments = new ArrayList<Comment>();
-    private CommentsDataSource datasource;
+    private ArrayAdapter<Location> mLocationAdapter;
+    ArrayList<String> locationConfigs = new ArrayList<String>();
+    List<Location> locations = new ArrayList<Location>();
+    private LocationsDataSource datasource;
 
     private PendingIntent mGeofencePendingIntent;
 
@@ -87,13 +87,13 @@ public class LocationFragment extends Fragment implements GoogleApiClient.Connec
         /** Reference to the button of the layout main.xml */
         Button btn = (Button) rootView.findViewById(R.id.btnAdd);
 
-        datasource = new CommentsDataSource(getActivity());
+        datasource = new LocationsDataSource(getActivity());
         datasource.open();
 
-        comments = datasource.getAllComments();
+        locations = datasource.getAllLocations();
 
 
-        mLocationAdapter = new ArrayAdapter<Comment>(
+        mLocationAdapter = new ArrayAdapter<Location>(
                 // the current context which is this fragment's parent activity
                 getActivity(),
                 //ID of list item layout
@@ -101,7 +101,7 @@ public class LocationFragment extends Fragment implements GoogleApiClient.Connec
                 //ID of the text view to populate
                 R.id.list_item_location_textview,
                 //forecast Data
-                comments);
+                locations);
 
         final EditText edit = (EditText) rootView.findViewById(R.id.txtItem);
 
@@ -112,9 +112,9 @@ public class LocationFragment extends Fragment implements GoogleApiClient.Connec
                 //EditText edit = (EditText) findViewById(R.id.txtItem);
                 //locations.add(edit.getText().toString());
 
-                Comment comment = null;
-                comment = datasource.createComment(edit.getText().toString());
-                mLocationAdapter.add(comment);
+                Location location = null;
+                location = datasource.createLocation(edit.getText().toString());
+                mLocationAdapter.add(location);
 
                 Geofence geofence = createGeoFence(edit.getText().toString());
                 if (geofence != null) {

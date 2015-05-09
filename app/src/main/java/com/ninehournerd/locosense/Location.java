@@ -3,9 +3,9 @@ package com.ninehournerd.locosense;
 /**
  * Created by katelyn on 4/26/15.
  */
-public class Comment {
+public class Location {
     private long id;
-    private String comment;
+    private String location;
 
     public long getId() {
         return id;
@@ -15,17 +15,17 @@ public class Comment {
         this.id = id;
     }
 
-    public String getComment() {
-        return comment;
+    public String getLocation() {
+        return location;
     }
 
-    public void setComment(String comment) {
-        this.comment = comment;
+    public void setLocation(String location) {
+        this.location = location;
     }
 
     // Will be used by the ArrayAdapter in the ListView
     @Override
     public String toString() {
-        return comment;
+        return location;
     }
 }

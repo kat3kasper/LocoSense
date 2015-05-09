@@ -12,15 +12,15 @@ import android.database.sqlite.SQLiteDatabase;
 import java.util.ArrayList;
 import java.util.List;
 
-public class CommentsDataSource {
+public class LocationsDataSource {
 
     // Database fields
     private SQLiteDatabase database;
     private MySQLiteHelper dbHelper;
     private String[] allColumns = { MySQLiteHelper.COLUMN_ID,
-            MySQLiteHelper.COLUMN_COMMENT };
+            MySQLiteHelper.COLUMN_LOCATION};
 
-    public CommentsDataSource(Context context) {
+    public LocationsDataSource(Context context) {
         dbHelper = new MySQLiteHelper(context);
     }
 
@@ -32,48 +32,48 @@ public class CommentsDataSource {
         dbHelper.close();
     }
 
-    public Comment createComment(String comment) {
+    public Location createLocation(String location) {
         ContentValues values = new ContentValues();
-        values.put(MySQLiteHelper.COLUMN_COMMENT, comment);
-        long insertId = database.insert(MySQLiteHelper.TABLE_COMMENTS, null,
+        values.put(MySQLiteHelper.COLUMN_LOCATION, location);
+        long insertId = database.insert(MySQLiteHelper.TABLE_LOCATIONS, null,
                 values);
-        Cursor cursor = database.query(MySQLiteHelper.TABLE_COMMENTS,
+        Cursor cursor = database.query(MySQLiteHelper.TABLE_LOCATIONS,
                 allColumns, MySQLiteHelper.COLUMN_ID + " = " + insertId, null,
                 null, null, null);
         cursor.moveToFirst();
-        Comment newComment = cursorToComment(cursor);
+        Location newLocation = cursorToLocation(cursor);
         cursor.close();
-        return newComment;
+        return newLocation;
     }
 
-    public void deleteComment(Comment comment) {
-        long id = comment.getId();
-        System.out.println("Comment deleted with id: " + id);
-        database.delete(MySQLiteHelper.TABLE_COMMENTS, MySQLiteHelper.COLUMN_ID
+    public void deleteLocation(Location location) {
+        long id = location.getId();
+        System.out.println("Location deleted with id: " + id);
+        database.delete(MySQLiteHelper.TABLE_LOCATIONS, MySQLiteHelper.COLUMN_ID
                 + " = " + id, null);
     }
 
-    public List<Comment> getAllComments() {
-        List<Comment> comments = new ArrayList<Comment>();
+    public List<Location> getAllLocations() {
+        List<Location> locations = new ArrayList<Location>();
 
-        Cursor cursor = database.query(MySQLiteHelper.TABLE_COMMENTS,
+        Cursor cursor = database.query(MySQLiteHelper.TABLE_LOCATIONS,
                 allColumns, null, null, null, null, null);
 
         cursor.moveToFirst();
         while (!cursor.isAfterLast()) {
-            Comment comment = cursorToComment(cursor);
-            comments.add(comment);
+            Location location = cursorToLocation(cursor);
+            locations.add(location);
             cursor.moveToNext();
         }
         // make sure to close the cursor
         cursor.close();
-        return comments;
+        return locations;
     }
 
-    private Comment cursorToComment(Cursor cursor) {
-        Comment comment = new Comment();
-        comment.setId(cursor.getLong(0));
-        comment.setComment(cursor.getString(1));
-        return comment;
+    private Location cursorToLocation(Cursor cursor) {
+        Location location = new Location();
+        location.setId(cursor.getLong(0));
+        location.setLocation(cursor.getString(1));
+        return location;
     }
 }
